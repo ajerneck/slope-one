@@ -12,6 +12,7 @@ import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import System.Environment (getArgs)
 
 import Debug.Trace
 
@@ -52,7 +53,7 @@ readRatings = M.unionsWith (M.union) . V.toList . V.map (\(Rating u i s) -> M.si
 
 -- calculate deviations.
 -- TODO: what datastructure should they be stored in?
-devs x = map (\(i,j) -> deviation (M.findWithDefault M.empty i x) (M.findWithDefault M.empty j x)) $ allPairs where
+devs x = map (\(i,j) -> (i, j, deviation (M.findWithDefault M.empty i x) (M.findWithDefault M.empty j x) ) ) $ allPairs where
   allPairs = pairs $ M.keys x
 
 -- Calculate deviation between a pair of items.
@@ -71,14 +72,32 @@ deviation i j = result where
 pairs :: (Eq a) => [a] -> [(a, a)]
 pairs x = [(i, j) | i <- x, j <- x, j /= i]
 
+-- Make predictions
+
+-- prediction : predict user u's rating for item j.
+prediction :: User -> Item -> Double
+prediction user item = undefined
+
+-- numerator = for all items ben has rated,
+
+itemsUserHasRated user ir = M.foldrWithKey (\k a acc -> if M.member user a then k:acc else acc) [] ir
+
+-- devsBetween item ds ::
 
 -- | Concrete application
 
 bookFile = "/home/alexander/data/data-science/book-crossing/BX-Book-Ratings.csv"
 testFile = "testdata.csv"
 
-main = do
+libMain = do
   x <- parseCSV testFile
   case x  of
    Left m -> error m
    Right x -> return $ readRatings $ snd x
+
+main = do
+  (f:n:_) <- getArgs
+  x <- parseCSV f
+  case x  of
+   Left m -> error m
+   Right x -> mapM_ print $ M.toList $ readRatings $ V.take (read n) $ snd x
