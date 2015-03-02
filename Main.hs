@@ -9,6 +9,7 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Char (ord)
 import Data.Csv
 import qualified Data.Map.Strict as M
+import Data.Maybe (isNothing)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -51,15 +52,22 @@ readRatings = M.unionsWith (M.union) . V.toList . V.map (\(Rating u i s) -> M.si
 
 
 
--- calculate deviations.
--- TODO: what datastructure should they be stored in?
+-- Calculate deviations for all pairs of items.
 devs x = map (\(i,j) -> (i, j, deviation (M.findWithDefault M.empty i x) (M.findWithDefault M.empty j x) ) ) $ allPairs where
   allPairs = pairs $ M.keys x
 
--- Calculate deviation between a pair of items.
-deviation i j = result where
+
+
+-- Store both deviation and cardinality for each pair, because we need both in predict.
+data Deviation = Deviation { dev :: Score
+                           , card :: Score
+                           } deriving Show
+
+
+-- calculate deviations and cardinality for a pair of items.
+deviation i j = Deviation result card where
   -- calculate the deviations as the average deviation between the ratings.
-  result = ds/card
+  result = ds/ card
   ds = sum $ zipWith (-) (M.elems i') (M.elems j')
   -- restrict ratings to those made by both users.
   i' = M.filterWithKey (\k _ -> k `S.member` commonKeys) i
@@ -74,20 +82,35 @@ pairs x = [(i, j) | i <- x, j <- x, j /= i]
 
 -- Make predictions
 
--- prediction : predict user u's rating for item j.
-prediction :: User -> Item -> Double
-prediction user item = undefined
+-- Predict the rating for a user and an item, given all ratings and the deviations between them.
+predict user item ir ds = result where
+  result = numerator/denominator
+  -- sum the cardinality of the item ratings.
+  denominator = sum $ M.elems cards
+  -- add item deviations to userratings, multiply by the item ratings cardinality, and sum.
+  numerator = sum $ M.elems $ M.unionWith (*) cards $ M.unionWith (+) userRatings itemDevs
+  -- get the users ratings for other items.
+  userRatings = userRatings user ir
+  -- get deviations and cardinality for the ratings for the item.
+  devCards = itemDeviations item ds
+  itemDevs = M.map dev devCards
+  cards = M.map card devCards
 
--- numerator = for all items ben has rated,
+-- TODO: using zero does not feel completely correct.
+-- get all ratings for a user.
+userRatings user = M.filter (/=0) . M.mapWithKey (\k a -> M.findWithDefault 0 testUser a)
 
-itemsUserHasRated user ir = M.foldrWithKey (\k a acc -> if M.member user a then k:acc else acc) [] ir
+-- get the deviations for an item.
+itemDeviations item = M.fromList . foldr (\(a, b, r) acc -> if a==item then (b,r):acc else acc) []
 
--- devsBetween item ds ::
 
 -- | Concrete application
 
 bookFile = "/home/alexander/data/data-science/book-crossing/BX-Book-Ratings.csv"
 testFile = "testdata.csv"
+
+testUser = "ben" :: User
+testItem = "whitney" :: Item
 
 libMain = do
   x <- parseCSV testFile
