@@ -88,9 +88,9 @@ predict user item ir ds = result where
   -- sum the cardinality of the item ratings.
   denominator = sum $ M.elems cards
   -- add item deviations to userratings, multiply by the item ratings cardinality, and sum.
-  numerator = sum $ M.elems $ M.unionWith (*) cards $ M.unionWith (+) userRatings itemDevs
+  numerator = sum $ M.elems $ M.unionWith (*) cards $ M.unionWith (+) ur itemDevs
   -- get the users ratings for other items.
-  userRatings = userRatings user ir
+  ur = userRatings user ir
   -- get deviations and cardinality for the ratings for the item.
   devCards = itemDeviations item ds
   itemDevs = M.map dev devCards
@@ -106,6 +106,7 @@ itemDeviations item = M.fromList . foldr (\(a, b, r) acc -> if a==item then (b,r
 
 -- | Concrete application
 
+-- Change the bookFile path to where you save the book crossings dataset.
 bookFile = "/home/alexander/data/data-science/book-crossing/BX-Book-Ratings.csv"
 testFile = "testdata.csv"
 
@@ -119,8 +120,10 @@ libMain = do
    Right x -> return $ readRatings $ snd x
 
 main = do
-  (f:n:_) <- getArgs
+  (f:n:c) <- getArgs
   x <- parseCSV f
   case x  of
    Left m -> error m
    Right x -> mapM_ print $ M.toList $ readRatings $ V.take (read n) $ snd x
+
+--makePred x = predict "276747"
